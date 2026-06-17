@@ -39,6 +39,7 @@ export interface CostEstimateInfo {
   klientNazwa: string;
   klientAdres: string;
   klientTelefon: string;
+  klientEmail?: string;
   tytulProjektu: string;
   notatki?: string;
 }

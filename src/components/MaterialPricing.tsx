@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { MaterialItem } from "../types";
-import { Plus, Trash2, ShoppingCart, Percent, TrendingUp, Search, X, Minus, Sparkles } from "lucide-react";
+import { Plus, Trash2, ShoppingCart, Percent, TrendingUp, Search, X, Minus, Sparkles, Copy } from "lucide-react";
 import { INITIAL_MATERIALS } from "../constants";
+import { useToast } from "../context/ToastContext";
+import { suggestVatRate, getVatReason } from "../utils/vatSuggester";
 
 interface MaterialPricingProps {
   materials: MaterialItem[];
@@ -9,6 +11,8 @@ interface MaterialPricingProps {
 }
 
 export default function MaterialPricing({ materials, setMaterials }: MaterialPricingProps) {
+  const { showToast } = useToast();
+
   // Local states for adding a custom item
   const [newMaterialName, setNewMaterialName] = useState("");
   const [newMaterialQty, setNewMaterialQty] = useState(1);
@@ -38,6 +42,7 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
       ...m,
       marzaProcent: markupValue
     })));
+    showToast(`Ustawiono marżę globalną dla wszystkich materiałów na ${markupValue}%!`, "info");
   };
 
   const handleAddCustom = (e: React.FormEvent) => {
@@ -55,6 +60,7 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
     };
 
     setMaterials(prev => [...prev, newItem]);
+    showToast(`Dodano materiał: ${newMaterialName}!`, "success");
     // reset form
     setNewMaterialName("");
     setNewMaterialQty(1);
@@ -66,6 +72,7 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
     const existing = materials.find(m => m.nazwa.toLowerCase() === preset.nazwa.toLowerCase());
     if (existing) {
       setMaterials(prev => prev.map(m => m.id === existing.id ? { ...m, ilosc: m.ilosc + 1 } : m));
+      showToast(`Zwiększono ilość dla: ${preset.nazwa}`, "info");
     } else {
       const newItem: MaterialItem = {
         ...preset,
@@ -73,6 +80,7 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
         marzaProcent: globalMarkup // Apply current global markup
       };
       setMaterials(prev => [...prev, newItem]);
+      showToast(`Dodano materiał: ${preset.nazwa}!`, "success");
     }
   };
 
@@ -90,7 +98,34 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
   };
 
   const deleteItem = (id: string) => {
+    const item = materials.find(m => m.id === id);
     setMaterials(prev => prev.filter(m => m.id !== id));
+    if (item) {
+      showToast(`Usunięto materiał: ${item.nazwa}`, "warning");
+    }
+  };
+
+  const duplicateItem = (id: string) => {
+    const item = materials.find(m => m.id === id);
+    if (!item) return;
+    const duplicated: MaterialItem = {
+      ...item,
+      id: "dup-" + Date.now() + "-" + Math.random().toString(36).substring(2, 5),
+      nazwa: `${item.nazwa} (Kopia)`
+    };
+    setMaterials(prev => [...prev, duplicated]);
+    showToast(`Zduplikowano materiał: ${item.nazwa}`, "success");
+  };
+
+  const updateItemVat = (id: string, vat: number) => {
+    setMaterials(prev => prev.map(m => m.id === id ? { ...m, vat } : m));
+  };
+
+  const handleSmartVatForAddedItem = (item: MaterialItem) => {
+    const suggested = suggestVatRate(item.nazwa, false);
+    const reason = getVatReason(item.nazwa, false);
+    updateItemVat(item.id, suggested);
+    showToast(`Intelektualny słownik: zastosowano stawkę ${suggested}% VAT dla "${item.nazwa}". Powód: ${reason}`, "info");
   };
 
   // Categorize predefined materials
@@ -112,8 +147,10 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
       const newQty = Math.max(0, existing.ilosc + delta);
       if (newQty === 0) {
         setMaterials(prev => prev.filter(m => m.id !== existing.id));
+        showToast(`Usunięto materiał: ${preset.nazwa}`, "warning");
       } else {
         setMaterials(prev => prev.map(m => m.id === existing.id ? { ...m, ilosc: parseFloat(newQty.toFixed(2)) } : m));
+        showToast(`Ilość ${preset.nazwa}: ${parseFloat(newQty.toFixed(2))} ${preset.jednostka}`, "info");
       }
     } else {
       if (delta > 0) {
@@ -124,6 +161,7 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
           marzaProcent: globalMarkup // Apply current global markup
         };
         setMaterials(prev => [...prev, newItem]);
+        showToast(`Dodano materiał: ${preset.nazwa}!`, "success");
       }
     }
   };
@@ -241,15 +279,24 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
 
               return (
                 <div key={m.id} className="border border-slate-100 rounded-xl p-3 bg-slate-50 relative group">
-                  <button 
-                    onClick={() => deleteItem(m.id)}
-                    className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 cursor-pointer"
-                    title="Usuń pozycję"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="absolute top-2 right-2 flex items-center space-x-1">
+                    <button
+                      onClick={() => duplicateItem(m.id)}
+                      className="p-1.5 text-slate-400 hover:text-blue-500 rounded-lg hover:bg-blue-50 cursor-pointer"
+                      title="Duplikuj pozycję"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={() => deleteItem(m.id)}
+                      className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 cursor-pointer"
+                      title="Usuń pozycję"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
 
-                  <p className="font-bold text-xs text-slate-800 pr-8">{m.nazwa}</p>
+                  <p className="font-bold text-xs text-slate-800 pr-16">{m.nazwa}</p>
 
                   <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
                     {/* Quantity edit */}
@@ -297,10 +344,26 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
                       </select>
                     </div>
 
-                    <div className="col-span-2 text-right">
-                      <span className="text-slate-500">Razem dla klienta:</span>
+                    <div className="col-span-2 text-right flex items-center justify-end flex-wrap gap-1">
+                      <span className="text-slate-500">VAT:</span>
+                      <select 
+                        value={m.vat} 
+                        onChange={(e) => updateItemVat(m.id, parseInt(e.target.value))}
+                        className="bg-transparent font-semibold text-slate-700 dark:text-slate-200 focus:outline-none text-[10px] border border-slate-200/55 rounded-sm px-1"
+                      >
+                        <option value="23">23%</option>
+                        <option value="8">8%</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleSmartVatForAddedItem(m)}
+                        className="p-1 text-slate-400 hover:text-blue-500 rounded-lg hover:bg-blue-50 cursor-pointer"
+                        title="Inteligentne sugerowanie VAT dla tej pozycji"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                      </button>
                       <span className="font-extrabold text-slate-900 ml-1">
-                        {totalGross.toFixed(2)} zł <span className="text-[9px] text-slate-400">({m.vat}% VAT)</span>
+                        {totalGross.toFixed(2)} zł
                       </span>
                     </div>
                   </div>
@@ -324,7 +387,13 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
               type="text"
               placeholder="np. Kolano PEX zaprasowywane 16x16"
               value={newMaterialName}
-              onChange={(e) => setNewMaterialName(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setNewMaterialName(val);
+                if (val.trim()) {
+                  setNewMaterialVat(suggestVatRate(val, false));
+                }
+              }}
               className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800"
             />
           </div>
@@ -369,7 +438,7 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
           </div>
 
           <div className="flex gap-2 items-center justify-between pt-1">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-wrap gap-y-1">
               <span className="text-[11px] font-bold text-slate-500">VAT:</span>
               <button
                 type="button"
@@ -385,6 +454,22 @@ export default function MaterialPricing({ materials, setMaterials }: MaterialPri
               >
                 8%
               </button>
+              {newMaterialName.trim() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const suggested = suggestVatRate(newMaterialName, false);
+                    const reason = getVatReason(newMaterialName, false);
+                    setNewMaterialVat(suggested);
+                    showToast(`Słownik: Wykryto stawkę ${suggested}% VAT dla "${newMaterialName}". ${reason}`, "info");
+                  }}
+                  className="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 flex items-center gap-1 cursor-pointer transition-all border border-blue-200/30"
+                  title="Wymuś automatyczne rozpoznanie stawki VAT na podstawie nazwy"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+                  <span>Sugeruj VAT</span>
+                </button>
+              )}
             </div>
 
             <button

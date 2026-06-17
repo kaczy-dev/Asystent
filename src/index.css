@@ -9,3 +9,103 @@
 body {
   font-family: var(--font-sans);
 }
+
+/* Custom dark mode utility mappings */
+body.dark-mode-active,
+.dark-mode-active {
+  background-color: #020617 !important; /* slate-950 */
+  color: #f8fafc !important; /* slate-50 */
+}
+
+/* Base containers, screens, frames */
+.dark-mode-active .bg-slate-50,
+.dark-mode-active .bg-slate-100 {
+  background-color: #090d16 !important; /* deep slate-900 / slate-950 */
+}
+.dark-mode-active .bg-white {
+  background-color: #111827 !important; /* slate-900 */
+}
+
+/* Borders */
+.dark-mode-active .border-slate-100,
+.dark-mode-active .border-slate-200,
+.dark-mode-active .border-slate-300 {
+  border-color: #1f2937 !important; /* gray-800 */
+}
+
+/* Text coloring */
+.dark-mode-active .text-slate-900,
+.dark-mode-active .text-slate-800,
+.dark-mode-active .text-slate-700 {
+  color: #f3f4f6 !important; /* gray-100 */
+}
+.dark-mode-active .text-slate-500,
+.dark-mode-active .text-slate-600 {
+  color: #9ca3af !important; /* gray-400 */
+}
+.dark-mode-active .text-slate-400 {
+  color: #6b7280 !important; /* gray-500 */
+}
+
+/* Inputs, Select fields and Textareas */
+.dark-mode-active input,
+.dark-mode-active select,
+.dark-mode-active textarea {
+  background-color: #111827 !important; /* gray-900 */
+  border-color: #374151 !important; /* gray-700 */
+  color: #f3f4f6 !important;
+}
+.dark-mode-active select option {
+  background-color: #111827 !important;
+  color: #f3f4f6 !important;
+}
+
+/* White buttons, secondary elements */
+.dark-mode-active button.bg-white,
+.dark-mode-active button:not(.bg-blue-600):not(.bg-emerald-600):not(.bg-gradient-to-r):not(.bg-amber-600):not(.bg-slate-900).bg-slate-50 {
+  background-color: #1f2937 !important; /* gray-800 */
+  border-color: #374151 !important; /* gray-700 */
+  color: #f3f4f6 !important;
+}
+.dark-mode-active button.bg-white:hover {
+  background-color: #374151 !important;
+}
+
+/* Highlight boxes (amber advice, info panels, blue info panels, green success) */
+.dark-mode-active .bg-amber-50,
+.dark-mode-active .bg-amber-50\/35,
+.dark-mode-active .bg-amber-50\/50 {
+  background-color: rgba(217, 119, 6, 0.08) !important;
+  border-color: rgba(217, 119, 6, 0.2) !important;
+}
+.dark-mode-active .text-amber-800,
+.dark-mode-active .text-amber-900 {
+  color: #fcd34d !important; /* amber-300 */
+}
+.dark-mode-active .bg-blue-50 {
+  background-color: rgba(37, 99, 235, 0.08) !important;
+  border-color: rgba(37, 99, 235, 0.2) !important;
+}
+.dark-mode-active .text-blue-800,
+.dark-mode-active .text-blue-900 {
+  color: #93c5fd !important; /* blue-300 */
+}
+.dark-mode-active .bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+  border-color: rgba(99, 102, 241, 0.2) !important;
+}
+.dark-mode-active .bg-emerald-50\/35,
+.dark-mode-active .bg-emerald-50/50,
+.dark-mode-active .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.08) !important;
+  border-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+/* Specific elements refinements for lists scroll scrollbar in Dark mode */
+.dark-mode-active ::-webkit-scrollbar-track {
+  background: #111827 !important;
+}
+.dark-mode-active ::-webkit-scrollbar-thumb {
+  background: #374151 !important;
+}
+

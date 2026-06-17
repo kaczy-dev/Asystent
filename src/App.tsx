@@ -13,10 +13,13 @@ import {
   HelpCircle,
   Clock,
   Sparkles,
-  Phone
+  Phone,
+  Sun,
+  Moon
 } from "lucide-react";
 import { MaterialItem, ServiceItem, CostEstimateInfo } from "./types";
 import { INITIAL_MATERIALS, INITIAL_SERVICES, PLUMBER_WISDOM } from "./constants";
+import { useToast } from "./context/ToastContext";
 
 // Modular components
 import Calculators from "./components/Calculators";
@@ -27,6 +30,44 @@ import DataBackup from "./components/DataBackup";
 import CostPieChart from "./components/CostPieChart";
 
 export default function App() {
+  const { showToast } = useToast();
+
+  // Offline/Online status state
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Dark mode UI state
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem("asystent_hydraulika_darkMode") === "true";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("asystent_hydraulika_darkMode", darkMode.toString());
+    if (darkMode) {
+      document.body.classList.add("dark-mode-active");
+    } else {
+      document.body.classList.remove("dark-mode-active");
+    }
+  }, [darkMode]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      showToast("Odzyskano połączenie z internetem. Usługi online są aktywne!", "success");
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      showToast("Przełączono w tryb offline. Możesz bez przeszkód kontynuować pracę - aplikacja zapisuje dane lokalnie.", "warning");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [showToast]);
+
   // Shared state of items and estimate settings
   const [materials, setMaterials] = useState<MaterialItem[]>(INITIAL_MATERIALS);
   const [services, setServices] = useState<ServiceItem[]>(INITIAL_SERVICES);
@@ -60,6 +101,7 @@ export default function App() {
       klientNazwa: "Jan Kowalski",
       klientAdres: "ul. Kwiatowa 8, 05-800 Pruszków",
       klientTelefon: "602 456 789",
+      klientEmail: "jan.kowalski@gmail.com",
       tytulProjektu: "Ogrzewanie podłogowe i kotłownia gazowa - Pruszków",
       notatki: ""
     };
@@ -97,6 +139,7 @@ export default function App() {
       });
       return updated;
     });
+    showToast(`Pomyślnie zaimportowano ${itemsToAdd.length} materiałów ze skanu fakturowego!`, "success");
     // Redirect to materials overview tab so plumber reviews imported pricing
     setActiveTab("materials");
   };
@@ -157,6 +200,7 @@ export default function App() {
             : `${prev.tytulProjektu} | ${data.estimateInfo!.tytulProjektu}`
         }));
       }
+      showToast("Projekt połączony z aktualnym kosztorysem!", "success");
     } else {
       // Complete reset/overwrite
       if (data.materials && Array.isArray(data.materials)) {
@@ -168,13 +212,14 @@ export default function App() {
       if (data.estimateInfo) {
         setEstimateInfo(data.estimateInfo);
       }
+      showToast("Pomyślnie zaimportowano pełne dane projektu z pliku!", "success");
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex justify-center py-0 sm:py-6 md:py-10">
+    <div className={`min-h-screen bg-slate-100 flex justify-center py-0 sm:py-6 md:py-10 transition-colors duration-300 ${darkMode ? "dark-mode-active bg-slate-900" : ""}`}>
       {/* Mobile viewport frame container */}
-      <div className="w-full max-w-md bg-slate-50 min-h-screen sm:min-h-[850px] sm:max-h-[900px] sm:rounded-[40px] sm:shadow-2xl border-0 sm:border-8 border-slate-900 overflow-hidden flex flex-col relative text-slate-900">
+      <div className={`w-full max-w-md bg-slate-50 min-h-screen sm:min-h-[850px] sm:max-h-[900px] sm:rounded-[40px] sm:shadow-2xl border-0 sm:border-8 overflow-hidden flex flex-col relative text-slate-900 transition-all duration-300 ${darkMode ? "dark-mode-active border-slate-800" : "border-slate-900"}`}>
         
         {/* Mobile Status Bar simulation */}
         <div className="hidden sm:flex bg-slate-950 text-slate-400 py-1 px-6 justify-between items-center text-[10px] font-bold">
@@ -201,9 +246,21 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-1 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-[10px] font-bold text-slate-300">ONLINE</span>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-lg transition-all cursor-pointer flex items-center justify-center shadow-xs"
+              title={darkMode ? "Wyłącz tryb ciemny" : "Włącz tryb ciemny"}
+            >
+              {darkMode ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-indigo-300" />}
+            </button>
+
+            <div className="flex items-center space-x-1 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full">
+              <span className={`w-2 h-2 rounded-full ${isOnline ? "bg-emerald-500" : "bg-amber-500"} animate-pulse`}></span>
+              <span className={`text-[10px] font-extrabold ${isOnline ? "text-slate-300" : "text-amber-400"}`}>
+                {isOnline ? "ONLINE" : "OFFLINE"}
+              </span>
+            </div>
           </div>
         </header>
 
@@ -415,7 +472,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.16, ease: "easeOut" }}
               >
-                <Calculators />
+                <Calculators services={services} setServices={setServices} />
               </motion.div>
             )}
 

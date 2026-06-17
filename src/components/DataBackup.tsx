@@ -11,6 +11,7 @@ import {
   Copy,
   Check
 } from "lucide-react";
+import { useToast } from "../context/ToastContext";
 
 interface DataBackupProps {
   materials: MaterialItem[];
@@ -32,6 +33,7 @@ export default function DataBackup({
   estimateInfo,
   onImportData,
 }: DataBackupProps) {
+  const { showToast } = useToast();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -67,10 +69,12 @@ export default function DataBackup({
       downloadAnchor.remove();
 
       setSuccessMsg("Pomyślnie wyeksportowano plik kopii zapasowej!");
+      showToast("Pomyślnie wyeksportowano plik kopii zapasowej!", "success");
       setErrorMsg(null);
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err: any) {
       setErrorMsg("Nie udało się przygotować pliku eksportu.");
+      showToast("Nie udało się przygotować pliku eksportu.", "error");
     }
   };
 
@@ -89,6 +93,7 @@ export default function DataBackup({
       navigator.clipboard.writeText(JSON.stringify(exportPayload, null, 2));
       setCopied(true);
       setSuccessMsg("Skopiowano kod kosztorysu do schowka!");
+      showToast("Skopiowano kod kosztorysu do schowka!", "success");
       setErrorMsg(null);
       setTimeout(() => {
         setCopied(false);
@@ -96,6 +101,7 @@ export default function DataBackup({
       }, 3000);
     } catch (err) {
       setErrorMsg("Przeglądarka zablokowała dostęp do schowka.");
+      showToast("Przeglądarka zablokowała dostęp do schowka.", "error");
     }
   };
 

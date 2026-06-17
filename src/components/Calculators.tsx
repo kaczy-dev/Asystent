@@ -1,7 +1,34 @@
-import React, { useState } from "react";
-import { Wrench, Flame, HelpCircle, Thermometer, Layers, ShieldCheck, Ruler, Info, ShoppingCart, Sparkles } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { 
+  Wrench, 
+  Flame, 
+  HelpCircle, 
+  Thermometer, 
+  Layers, 
+  ShieldCheck, 
+  Ruler, 
+  Info, 
+  ShoppingCart, 
+  Sparkles,
+  Clock,
+  Plus,
+  Minus,
+  UserCheck,
+  CalendarCheck,
+  Wifi,
+  WifiOff,
+  Briefcase
+} from "lucide-react";
+import { ServiceItem } from "../types";
+import { useToast } from "../context/ToastContext";
 
-export default function Calculators() {
+interface CalculatorsProps {
+  services?: ServiceItem[];
+  setServices?: React.Dispatch<React.SetStateAction<ServiceItem[]>>;
+}
+
+export default function Calculators({ services, setServices }: CalculatorsProps) {
+  const { showToast } = useToast();
   // Calculator 1: Heater Sizing (Dobór grzejnika)
   const [width, setWidth] = useState<number>(4);
   const [length, setLength] = useState<number>(5);
@@ -28,6 +55,82 @@ export default function Calculators() {
   const [wasteMargin, setWasteMargin] = useState<number>(8); // percentage
   const [pricePerCubic, setPricePerCubic] = useState<number>(290); // zł / m³
   const [pipeSpacing, setPipeSpacing] = useState<number>(15); // cm spacing
+
+  // Calculator 5: Working Time & Labor Point-Based Estimator
+  const [pointsList, setPointsList] = useState([
+    { id: "p1", name: "Podejście wod-kan (ciepła/zimna + odpływ)", hours: 3.5, price: 350, count: 0 },
+    { id: "p2", name: "Instalacja stelaża podtynkowego WC/bidet", hours: 4.0, price: 400, count: 0 },
+    { id: "p3", name: "Pętla ogrzewania podłogowego (rozdzielenie/ułożenie)", hours: 5.0, price: 500, count: 0 },
+    { id: "p4", name: "Montaż grzejnika tablicowego / drabinki łazienkowej", hours: 2.0, price: 220, count: 0 },
+    { id: "p5", name: "Montaż rozdzielacza mosiężnego z szafką i uzbrojeniem", hours: 6.0, price: 650, count: 0 },
+    { id: "p6", name: "Kotłownia standard / podłączenie źródła ciepła (kocioł/pompa)", hours: 20.0, price: 2500, count: 0 }
+  ]);
+
+  const [numPlumbers, setNumPlumbers] = useState<number>(1);
+  const [hourlyRate, setHourlyRate] = useState<number>(120);
+  const [pricingMode, setPricingMode] = useState<"points" | "hourly" | "combined">("points");
+
+  // Offline status specific to calculators
+  const [isOfflineMode, setIsOfflineMode] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const onOnline = () => setIsOfflineMode(false);
+    const onOffline = () => setIsOfflineMode(true);
+
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
+  const totalPoints = pointsList.reduce((sum, p) => sum + p.count, 0);
+  const totalHours = pointsList.reduce((sum, p) => sum + (p.count * p.hours), 0);
+  const totalPointsPrice = pointsList.reduce((sum, p) => sum + (p.count * p.price), 0);
+  const totalHourlyPrice = totalHours * hourlyRate;
+  
+  // Choose labor cost based on pricing mode
+  let finalLaborCost = totalPointsPrice;
+  if (pricingMode === "hourly") finalLaborCost = totalHourlyPrice;
+  else if (pricingMode === "combined") finalLaborCost = Math.round((totalPointsPrice + totalHourlyPrice) / 2);
+
+  // Suggested working days (assume 8-hour workday per plumber)
+  const workDaysNeeded = totalHours > 0 ? Math.ceil(totalHours / (8 * numPlumbers)) : 0;
+
+  const updatePointQty = (id: string, diff: number) => {
+    setPointsList(prev => prev.map(p => {
+      if (p.id === id) {
+        return { ...p, count: Math.max(0, p.count + diff) };
+      }
+      return p;
+    }));
+  };
+
+  const handleAddLaborToEstimate = () => {
+    if (!setServices) {
+      showToast("Błąd: Nie można uzyskać dostępu do kosztorysu głównego.", "error");
+      return;
+    }
+    if (finalLaborCost <= 0) {
+      showToast("Dodaj punkty instalacyjne, aby wyliczyć niezerowy koszt robocizny!", "warning");
+      return;
+    }
+
+    const serviceName = `Wycena robocizny: ${totalPoints} pkt. instalacyjnych (${totalHours.toFixed(1)} r-g, ${workDaysNeeded} dni robocze dla ekipy ${numPlumbers} os.)`;
+    const newService: ServiceItem = {
+      id: "est-labor-" + Math.random().toString(36).substring(2, 9),
+      nazwa: serviceName,
+      ilosc: 1,
+      jednostka: "kpl",
+      cenaNetto: finalLaborCost,
+      vat: 8 // Prefer 8% VAT standard for residential/individual clients in Poland
+    };
+
+    setServices(prev => [...prev, newService]);
+    showToast(`Pomyślnie dodano usługę wyceny robocizny do Kosztorysu (${finalLaborCost} zł netto)!`, "success");
+  };
 
   // Sizing formula outputs for Heater Sizing
   const kubatura = width * length * height;
@@ -709,6 +812,193 @@ export default function Calculators() {
               * Powyższe rekomendacje są oparte na rzemieślniczym standardzie pracy instalatorów systemów ogrzewania podłogowego i normie PN-EN 1264.
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* 5. Labor Points & Working Time Estimator */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <div className="flex items-center space-x-2">
+            <Briefcase className="h-5 w-5 text-amber-600" />
+            <h3 className="font-extrabold text-slate-900 text-base">Wycena Robocizny i Czasu Pracy</h3>
+          </div>
+          {isOfflineMode ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-200 uppercase">
+              <WifiOff className="h-2.5 w-2.5" /> offline OK
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase">
+              <Wifi className="h-2.5 w-2.5" /> online
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500 leading-relaxed font-semibold">
+            Zdefiniuj liczbę punktów instalacyjnych w budynku. Program automatycznie wyznaczy potrzebną liczbę roboczogodzin (r-g), czas trwania prac oraz rekomendowaną wycenę robocizny.
+          </p>
+
+          {/* Interactive list of standard plumbing points */}
+          <div className="space-y-2 border-y border-slate-100 py-3">
+            <span className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">
+              Punkty instalacyjne w budynku:
+            </span>
+            {pointsList.map((point) => (
+              <div 
+                key={point.id} 
+                className={`p-3 rounded-xl border transition-all flex items-center justify-between ${
+                  point.count > 0 
+                    ? "bg-amber-50/35 border-amber-200/80" 
+                    : "bg-white border-slate-100"
+                }`}
+              >
+                <div className="flex-1 pr-3">
+                  <h4 className="text-xs font-bold text-slate-800 leading-snug">{point.name}</h4>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                    Czas: <span className="text-slate-600 font-extrabold">{point.hours} r-g</span> / szt.
+                    {" | "}
+                    Stawka: <span className="text-slate-600 font-extrabold">{point.price} zł</span> / szt.
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => updatePointQty(point.id, -1)}
+                    className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center cursor-pointer transition-transform active:scale-95 text-xs font-bold shrink-0 touch-manipulation"
+                    aria-label="Zmniejsz"
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="w-6 text-center text-sm font-extrabold text-slate-800 font-mono">
+                    {point.count}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => updatePointQty(point.id, 1)}
+                    className="w-8 h-8 rounded-lg bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center cursor-pointer transition-transform active:scale-95 text-xs font-bold shrink-0 touch-manipulation"
+                    aria-label="Zwiększ"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Sizing Settings: Team & Pricing Mode */}
+          <div className="grid grid-cols-2 gap-3 pb-1">
+            <div>
+              <label className="block text-[10px] font-extrabold text-slate-400 uppercase mb-1">
+                Liczba Instalatorów
+              </label>
+              <select
+                value={numPlumbers}
+                onChange={(e) => setNumPlumbers(parseInt(e.target.value) || 1)}
+                className="w-full text-xs font-bold p-2.5 bg-slate-55 border border-slate-200 rounded-xl focus:outline-none focus:border-amber-500 text-slate-700 min-h-[44px]"
+              >
+                <option value="1">1 osoba (Samodzielnie)</option>
+                <option value="2">2 osoby (Standardowy duet)</option>
+                <option value="3">3 osoby (Duża ekipa)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-extrabold text-slate-400 uppercase mb-1">
+                Model Wyceny (Robocizny)
+              </label>
+              <select
+                value={pricingMode}
+                onChange={(e) => setPricingMode(e.target.value as any)}
+                className="w-full text-xs font-bold p-2.5 bg-slate-55 border border-slate-200 rounded-xl focus:outline-none focus:border-amber-500 text-slate-700 min-h-[44px]"
+              >
+                <option value="points">Ryczałt za punkty (Tradycyjny)</option>
+                <option value="hourly">Stawka roboczogodziny ({hourlyRate} zł)</option>
+                <option value="combined">Średni (Zbalansowany)</option>
+              </select>
+            </div>
+          </div>
+
+          {pricingMode === "hourly" && (
+            <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-600">Stawka za 1 roboczogodzinę:</span>
+                <span className="font-mono font-black text-amber-700">{hourlyRate} zł / h</span>
+              </div>
+              <input
+                type="range"
+                min="60"
+                max="250"
+                step="5"
+                value={hourlyRate}
+                onChange={(e) => setHourlyRate(parseInt(e.target.value))}
+                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-600 focus:outline-none py-1"
+              />
+            </div>
+          )}
+
+          {/* Sizing calculations outputs */}
+          <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl space-y-3">
+            <span className="block text-[10px] font-black uppercase text-amber-800 tracking-wider">
+              Wyliczone parametry rzemieślnicze:
+            </span>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-white border border-amber-100/50 p-2.5 rounded-xl text-center">
+                <span className="block text-[8px] font-bold text-slate-400 uppercase leading-none">Łącznie punktów:</span>
+                <span className="block text-sm font-black text-slate-800 font-mono mt-1">{totalPoints} szt.</span>
+              </div>
+
+              <div className="bg-white border border-amber-100/50 p-2.5 rounded-xl text-center">
+                <span className="block text-[8px] font-bold text-slate-400 uppercase leading-none">Praca (r-g):</span>
+                <span className="block text-sm font-black text-slate-800 font-mono mt-1">{totalHours.toFixed(1)} h</span>
+              </div>
+
+              <div className="bg-white border border-amber-100/50 p-2.5 rounded-xl text-center">
+                <span className="block text-[8px] font-bold text-slate-400 uppercase leading-none">Czas trwania:</span>
+                <span className="block text-sm font-black text-amber-800 font-mono mt-1">
+                  {workDaysNeeded} {workDaysNeeded === 1 ? "dzień" : "dni"}
+                </span>
+              </div>
+            </div>
+
+            {/* Price section */}
+            <div className="bg-slate-900 rounded-xl p-3 px-4 text-white flex justify-between items-center">
+              <div>
+                <p className="text-[9px] text-amber-400 font-black uppercase tracking-wider leading-none">
+                  Sugerowana cena robocizny (Netto):
+                </p>
+                <p className="text-[9px] text-slate-400 mt-1 leading-snug">
+                  {pricingMode === "points" && "* Suma ryczałtów za pojedyncze punkty"}
+                  {pricingMode === "hourly" && `* Wyliczona na bazie ${totalHours.toFixed(1)} h x ${hourlyRate} zł`}
+                  {pricingMode === "combined" && "* Kompromis między punktami a godzinami"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-black text-yellow-300 font-mono">
+                  {Math.round(finalLaborCost).toLocaleString("pl-PL")} zł
+                </p>
+                <p className="text-[9px] text-slate-300">
+                  Brutto (8%): {Math.round(finalLaborCost * 1.08).toLocaleString("pl-PL")} zł
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Action button with prompt connection to Services */}
+          <button
+            type="button"
+            onClick={handleAddLaborToEstimate}
+            className="w-full h-[46px] bg-amber-600 hover:bg-amber-500 text-white font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 cursor-pointer transition-transform active:scale-[0.99] shadow-sm select-none"
+          >
+            <Clock className="h-4 w-4 text-amber-100 shrink-0" />
+            <span>Przenieś wycenioną robociznę do Kosztorysu</span>
+          </button>
+
+          <p className="text-[10px] text-slate-400 leading-snug flex items-start gap-1">
+            <Info className="h-3 w-3 shrink-0 text-slate-400 mt-0.5" />
+            Estymowane r-g (roboczogodziny) obejmują podejścia pionowe i poziome, próby szczelności ciśnieniowej oraz zamocowania rur zgodnie z normą wykonawczą. Ten kalkulator działa w 100% lokalnie (offline).
+          </p>
         </div>
       </div>
     </div>
