@@ -1,0 +1,6 @@
+{
+  "name": "Asystent Hydraulika",
+  "description": "Mobilna aplikacja wspierająca hydraulików: profesjonalny kalkulator, wycena materiałów, skanowanie faktur za pomocą AI oraz generowanie kosztorysów PDF.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
